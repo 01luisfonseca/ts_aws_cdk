@@ -8,7 +8,13 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "deploy": "npm run build && npm run synth && cdk deploy",
+    "bootstrap": "cdk bootstrap",
+    "destroy": "cdk destroy",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "oxlint": "npx oxlint@latest"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.138",
