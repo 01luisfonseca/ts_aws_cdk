@@ -7,10 +7,31 @@ import * as elbv2targets from "aws-cdk-lib/aws-elasticloadbalancingv2-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as elb2Actions from "aws-cdk-lib/aws-elasticloadbalancingv2-actions";
+import * as certificatemanager from "aws-cdk-lib/aws-certificatemanager";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as route53targets from "aws-cdk-lib/aws-route53-targets";
+
+const domainName = process.env.PROYECT_DOMAIN as string;
 
 export class TsAwsCdkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // Create Hosted Zone in Route 53
+    const hostedZone = new route53.PublicHostedZone(this, "MyHostedZoneCloud", {
+      zoneName: domainName,
+    });
+
+    // Create and SSL Certificate in Certificate Manager
+    const certificate = new certificatemanager.Certificate(
+      this,
+      "MyCertificateCloud",
+      {
+        domainName,
+        validation:
+          certificatemanager.CertificateValidation.fromDns(hostedZone),
+      }
+    );
 
     // Make an Cognito User Pool
     const userPool = new cognito.UserPool(this, "UserPool", {
@@ -78,7 +99,8 @@ export class TsAwsCdkStack extends cdk.Stack {
 
     // Add a listener to the ALB
     const listener = alb.addListener("Listener", {
-      port: 80,
+      port: 443,
+      certificates: [certificate],
       open: true,
     });
 
@@ -102,6 +124,14 @@ export class TsAwsCdkStack extends cdk.Stack {
         contentType: "text/plain",
         messageBody: "Not Found",
       }),
+    });
+
+    // Create a DNS record in Route 53
+    new route53.ARecord(this, "AliasRecord", {
+      zone: hostedZone,
+      target: route53.RecordTarget.fromAlias(
+        new route53targets.LoadBalancerTarget(alb)
+      ),
     });
 
     new cdk.CfnOutput(this, "LoadBalancerDNS", {
