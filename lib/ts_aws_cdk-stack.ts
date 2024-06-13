@@ -22,120 +22,105 @@ export class TsAwsCdkStack extends cdk.Stack {
       zoneName: domainName,
     });
 
-    // Create and SSL Certificate in Certificate Manager
-    const certificate = new certificatemanager.Certificate(
-      this,
-      "MyCertificateCloud",
-      {
-        domainName,
-        validation:
-          certificatemanager.CertificateValidation.fromDns(hostedZone),
-      }
-    );
+    // // Create and SSL Certificate in Certificate Manager
+    // const certificate = new certificatemanager.Certificate(
+    //   this,
+    //   "MyCertificateCloud",
+    //   {
+    //     domainName,
+    //     validation:
+    //       certificatemanager.CertificateValidation.fromDns(hostedZone),
+    //   }
+    // );
 
-    // Make an Cognito User Pool
-    const userPool = new cognito.UserPool(this, "UserPool", {
-      userPoolName: "UserPoolCDK",
-      selfSignUpEnabled: true,
-      signInAliases: {
-        email: true,
-      },
-    });
+    // // Make an Cognito User Pool
+    // const userPool = new cognito.UserPool(this, "UserPool", {
+    //   userPoolName: "UserPoolCDK",
+    //   selfSignUpEnabled: true,
+    //   signInAliases: {
+    //     email: true,
+    //   },
+    // });
 
-    // Make an Cognito User Pool Client
-    const userPoolClient = new cognito.UserPoolClient(this, "UserPoolClient", {
-      userPool: userPool,
-      userPoolClientName: "UserPoolClientCDK",
-      generateSecret: true,
-    });
+    // // Make an Cognito User Pool Client
+    // const userPoolClient = new cognito.UserPoolClient(this, "UserPoolClient", {
+    //   userPool: userPool,
+    //   userPoolClientName: "UserPoolClientCDK",
+    //   generateSecret: true,
+    // });
 
-    // Make an Cognito User Pool Domain
-    const userPoolDomain = new cognito.UserPoolDomain(this, "UserPoolDomain", {
-      cognitoDomain: {
-        domainPrefix: "userpoolcdk",
-      },
-      userPool,
-    });
+    // // Make an Cognito User Pool Domain
+    // const userPoolDomain = new cognito.UserPoolDomain(this, "UserPoolDomain", {
+    //   cognitoDomain: {
+    //     domainPrefix: "userpoolcdk",
+    //   },
+    //   userPool,
+    // });
 
-    const vpc: ec2.IVpc = new ec2.Vpc(this, "VPC", {
-      // natGateways: 1, // It creates a NAT Gateway, and it has associated costs because launches an EC2 instance
-      maxAzs: 2, // It creates a VPC with two subnets in different AZs
-    });
+    // const vpc: ec2.IVpc = new ec2.Vpc(this, "VPC", {
+    //   // natGateways: 1, // It creates a NAT Gateway, and it has associated costs because launches an EC2 instance
+    //   maxAzs: 2, // It creates a VPC with two subnets in different AZs
+    // });
 
-    const lambdaFunction = new lambda.Function(this, "LambdaDemoBalancer", {
-      code: new lambda.AssetCode("./lambda"),
-      handler: "index.handler",
-      runtime: lambda.Runtime.NODEJS_LATEST,
-      vpc,
-    });
+    // const lambdaFunction = new lambda.Function(this, "LambdaDemoBalancer", {
+    //   code: new lambda.AssetCode("./lambda"),
+    //   handler: "index.handler",
+    //   runtime: lambda.Runtime.NODEJS_LATEST,
+    //   vpc,
+    // });
 
-    lambdaFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-        ],
-        resources: ["*"],
-      })
-    );
+    // lambdaFunction.addToRolePolicy(
+    //   new iam.PolicyStatement({
+    //     actions: [
+    //       "logs:CreateLogGroup",
+    //       "logs:CreateLogStream",
+    //       "logs:PutLogEvents",
+    //     ],
+    //     resources: ["*"],
+    //   })
+    // );
 
-    // Role for ALB to invoke Lambda
-    const albRole = new iam.Role(this, "AlbRole", {
-      assumedBy: new iam.ServicePrincipal("elasticloadbalancing.amazonaws.com"),
-    });
-    lambdaFunction.grantInvoke(albRole);
+    // // Role for ALB to invoke Lambda
+    // const albRole = new iam.Role(this, "AlbRole", {
+    //   assumedBy: new iam.ServicePrincipal("elasticloadbalancing.amazonaws.com"),
+    // });
+    // lambdaFunction.grantInvoke(albRole);
 
-    const alb = new elbv2.ApplicationLoadBalancer(this, "ALB", {
-      vpc,
-      internetFacing: true,
-    });
+    // const alb = new elbv2.ApplicationLoadBalancer(this, "ALB", {
+    //   vpc,
+    //   internetFacing: true,
+    // });
 
-    // Create a target group for the ALB
-    const targetGroup = new elbv2.ApplicationTargetGroup(this, "TargetGroup", {
-      vpc,
-      targets: [new elbv2targets.LambdaTarget(lambdaFunction)],
-    });
+    // // Create a target group for the ALB
+    // const targetGroup = new elbv2.ApplicationTargetGroup(this, "TargetGroup", {
+    //   vpc,
+    //   targets: [new elbv2targets.LambdaTarget(lambdaFunction)],
+    // });
 
-    // Add a listener to the ALB
-    const listener = alb.addListener("Listener", {
-      port: 443,
-      certificates: [certificate],
-      open: true,
-    });
+    // // Create a DNS record in Route 53
+    // new route53.ARecord(this, "AliasRecord", {
+    //   zone: hostedZone,
+    //   target: route53.RecordTarget.fromAlias(
+    //     new route53targets.LoadBalancerTarget(alb)
+    //   ),
+    // });
 
-    listener.addTargetGroups("TargetGroup", {
-      targetGroups: [targetGroup],
-      priority: 1,
-      conditions: [elbv2.ListenerCondition.pathPatterns(["/routes"])],
-    });
+    // // Add a listener to the ALB
+    // const listener = alb.addListener("Listener", {
+    //   port: 443,
+    //   certificates: [certificate],
+    //   open: true,
+    //   defaultAction: new elb2Actions.AuthenticateCognitoAction({
+    //     userPoolClient,
+    //     userPool,
+    //     userPoolDomain,
+    //     // Redirect to the target group with the path /routes
+    //     next: elbv2.ListenerAction.forward([targetGroup]),
+    //   }),
+    // });
 
-    listener.addAction("ForwardAuth", {
-      action: new elb2Actions.AuthenticateCognitoAction({
-        userPoolClient,
-        userPool,
-        userPoolDomain,
-        next: elbv2.ListenerAction.forward([targetGroup]),
-      }),
-    });
-
-    listener.addAction("DefaultAction", {
-      action: elbv2.ListenerAction.fixedResponse(404, {
-        contentType: "text/plain",
-        messageBody: "Not Found",
-      }),
-    });
-
-    // Create a DNS record in Route 53
-    new route53.ARecord(this, "AliasRecord", {
-      zone: hostedZone,
-      target: route53.RecordTarget.fromAlias(
-        new route53targets.LoadBalancerTarget(alb)
-      ),
-    });
-
-    new cdk.CfnOutput(this, "LoadBalancerDNS", {
-      value: alb.loadBalancerDnsName,
-    });
+    // new cdk.CfnOutput(this, "LoadBalancerDNS", {
+    //   value: alb.loadBalancerDnsName,
+    // });
   }
 }
